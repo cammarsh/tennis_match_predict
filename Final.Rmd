@@ -1,0 +1,330 @@
+---
+title: "Final Exam Winter 2018"
+author: "Lake Vitton"
+date: "April 17, 2018"
+output: 
+  html_document:
+    code_folding: hide
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(ggplot2)
+library(gmodels)
+library(stringi)
+library(plyr)
+library(caret)
+library(C50)
+library(class)
+library(kernlab)
+library(randomForest)
+library(irr)
+
+```
+
+> Welcome to the Final Exam for Winter 2018. Your exam submission will consist of an edited version of this RMD file and its HTML output. Please upload both these files to Canvas before the deadline.
+
+> Please note that you are expected to provide text comments, interpretations and explanations everywhere. Please explain your work. Spend some time interpreting your output and thinking about the business and decision making implications of your output. 
+
+> Finally, the specifications in this file are the baseline requirements for the final. If you can finish the file - then that's perfect. However, feel free to go beyond the specs in this file. For example - build a case for Cost Matrix for Decision Trees and add that. Cost Matrix is not part of this specification - but doing this may get you some extra credit points.
+
+## Identifying Phishing Websites
+
+For this final, we are using the dataset previously provided to you that contained information regarding various website attributes and a response variable: whether a website is a phishing website. Your objective today is to use the class content to build predictive models that can help us predict whether a particular website is a phishing website or not.
+
+Let's upload the dataset and see what we got here:
+```{r}
+phish <- read.csv("phishing.csv")
+str(phish)
+```
+As you can see, we have 31 variables including the response variable "Result". As the provided document explained, each of the predictor variables is an evaluation of whether a specific website attribute indicates that the website is:
+
+  - Legitimate (indicated by value: -1)
+  - Suspicious (indicated by value: 0)
+  - Phishing (indicated by value: 1)
+
+## What Do You Need to Do?
+
+For this Final, you are expected to do the following:
+
+### Import, Clean and Explore
+
+  - Import and clean your data
+  - Make sure that the columns are correctly classified
+  
+```{r}
+#read in the data
+df <- read.csv("phishing.csv")
+
+#change the names of misspelled variables
+names(df)[3] <- paste("Shortening_Service")
+names(df)[9] <- paste("Domain_registration_length")
+names(df)[22] <- paste("popUpWindow")
+
+#make every variable a factor in the dataframe
+df[sapply(df, is.integer)] <- lapply(df[sapply(df, is.integer)], as.factor)
+
+#get rid of any NA values (there aren't any)
+df <- na.omit(df)
+
+```
+  - Break factors into dummy variables using model.matrix
+  - Explore data both statistically and graphically
+
+From the below logistic regression we can see that many variables have statistical significance. 
+
+```{r}
+#preliminary statistical analysis using logistic regression
+logistic_model <- glm(Result ~  ., data = df, family = binomial)
+summary(logistic_model)
+
+```
+
+In this barplot we can see that there is a higher proportion of phishing websites to real websites in our dataset.
+
+```{r}
+#graphical analysis
+ggplot(df, aes(x = Result)) + 
+  geom_bar() + 
+  xlab(label = "Real vs Phishing") +
+  ylab(label = "Website Count") 
+
+```
+
+In this code block we are preparing our data for use in machine learning algorithms.
+
+
+### Data Management
+
+  - Randomize your dataset
+  - Break into test and train datasets
+  - Check and ensure that test and train datasets are similar
+  
+```{r}
+#Data Prep for models
+
+#randomize
+df_rand <- df[sample(nrow(df)),]
+                                                                                                                        
+# #Sample Indexes
+indexes = sample(1:nrow(df_rand), size=0.25*nrow(df_rand))
+  
+# # Split data
+df_test <- df_rand[indexes,]
+dim(df_test)  
+df_train <- df_rand[-indexes,]
+dim(df_train) 
+
+summary(df_train)
+summary(df_test)
+#Thanks to randomization, it appears that the proportion of -1 to 1 responses where there are two level factors is about equal across the columns.
+```
+  
+### Predictive Modeling
+
+Build (and attempt to improve) **any three** of the predictive models listed below:
+
+  - KNN: My KNN model returned an accuracy of 96.24% and a kappa of .9241.
+  
+```{r}
+#KNN
+knn_train <- model.matrix(~.-1, data = df_train)
+knn_test <- model.matrix(~.-1,data = df_test)
+
+knn_train_labels <- knn_train[, 31]
+knn_test_labels <- knn_test[, 31]
+
+knn_test_pred <- knn(train = knn_train, test = knn_test,
+                      cl = knn_train_labels, k=5)
+
+CrossTable(x = knn_test_labels, y = knn_test_pred, 
+           prop.chisq=FALSE,prop.c = FALSE, prop.r = FALSE,
+           dnn = c('actual default', 'predicted default'))
+
+confusionMatrix(data = knn_test_pred, reference = knn_test_labels, positive = "1")
+
+```
+  
+  - SVM: My SVM's (I ran two, a vanilladot and rbfdot) returned an accuracy of 93.67% and 95.62% respectively. They also returned kappas of .8713 (vanilla) and .9111 (rbf). As a result we can see that the rbf is the best of the two and should be used in the voting system vs the vanillas.
+  
+```{r}
+#SVM
+
+#Vanilla SVM
+SVM_classifier <- ksvm(Result ~ ., data = df_train,
+                          kernel = "vanilladot")
+
+# look at basic information about the model
+SVM_classifier
+
+## Evaluating model performance 
+# predictions on testing dataset
+SVM_predictions <- predict(SVM_classifier, df_test)
+
+head(SVM_predictions)
+
+table(SVM_predictions, df_test$Result)
+
+# look only at agreement vs. non-agreement
+# construct a vector of TRUE/FALSE indicating correct/incorrect predictions
+agreement <- SVM_predictions == df_test$Result
+table(agreement)
+prop.table(table(agreement))
+
+confusionMatrix(data = SVM_predictions, reference = df_test$Result, positive = "1")
+
+## Improving model performance
+SVM_classifier_rbf <- ksvm(Result ~ ., data = df_train, kernel = "rbfdot")
+SVM_predictions_rbf <- predict(SVM_classifier_rbf, df_test)
+
+agreement_rbf <- SVM_predictions_rbf == df_test$Result
+table(agreement_rbf)
+prop.table(table(agreement_rbf))
+
+confusionMatrix(data = SVM_predictions_rbf, reference = df_test$Result, positive = "1")
+
+```
+  
+  - ANN (not too many hidden layers): My neural net with 10 folds of cross validation returned an accuracy of 95.73% and a kappa of .9135.
+  
+```{r}
+model_nnet <- train(Result ~ ., df_train, method = "nnet", trControl = trainControl(method = "cv", number = 10, verboseIter = TRUE))
+
+prediction_nnet <- predict(model_nnet, df_test, na.rm = TRUE)
+
+CrossTable(x = df_test$Result, y = prediction_nnet, 
+           prop.chisq=FALSE,prop.c = FALSE, prop.r = FALSE,
+           dnn = c('actual default', 'predicted default'))
+
+confusionMatrix(data = prediction_nnet, reference = df_test$Result, positive = "1")
+```  
+
+  - Decision Trees: My basic Decision Tree returned an accuracy of 95.91% with a kappa of .9172, solid. My boosted model had an accuray of 97.03% and a kappa of .9399, better than my basic one. My cost matrix decision tree returned an accuracy of 95.66% and a kappa of .912, worse than the two others created. My last model with 10 folds of cross validation returned an accuracy of 84.92%, definitely the worst and won't be using.
+  
+```{r}
+#Decision Trees
+
+#I'm going to build four decision tree models, a basic, boosted, one with a cost matrix, and a cross validated one. I will then pick the model that is the most accurate as the one I will plug into my voting system below.
+
+#Basic Decision Tree
+DT_model <- C5.0(df_train[-31], df_train$Result)
+
+# display simple facts about the tree
+DT_model
+
+# display detailed information about the tree
+summary(DT_model)
+
+# create a factor vector of predictions on test data
+DT_pred <- predict(DT_model, df_test)
+
+# cross tabulation of predicted versus actual classes
+CrossTable(df_test$Result, DT_pred,
+           prop.chisq = FALSE, prop.c = FALSE, prop.r = FALSE,
+           dnn = c('actual default', 'predicted default'))
+
+confusionMatrix(data = DT_pred, reference = df_test$Result, positive = "1")
+
+#Decision tree model with 10 trials adaptive boosting:
+Result_boost10 <- C5.0(df_train[-31], df_train$Result,
+                       trials = 10)
+Result_boost10
+summary(Result_boost10)
+
+Result_boost_pred10 <- predict(Result_boost10, df_test)
+CrossTable(df_test$Result, Result_boost_pred10,
+           prop.chisq = FALSE, prop.c = FALSE, prop.r = FALSE,
+           dnn = c('actual default', 'predicted default'))
+
+confusionMatrix(data = Result_boost_pred10, reference = df_test$Result, positive = "1")
+
+
+#Now I will create a cost matrix that makes certain outcomes worse than over other outcomes. In this case my cost matrix weights errors that return a false negative as worse than a false positive. In this case I think this is the way to go becuase if this code was to bused for a product you would rather have the product be a bit overprotective, especially if it was guarding financial or critical information.
+
+#cost matrix
+Result_cost <- matrix(c(0, 2, 3, 0), nrow = 2)
+Result_cost
+
+# apply the cost matrix to the tree
+Result_cost <- C5.0(df_train[-31], df_train$Result,
+                          costs = Result_cost)
+Result_costmatrix_pred <- predict(Result_cost, df_test)
+
+CrossTable(df_test$Result, Result_costmatrix_pred,
+           prop.chisq = FALSE, prop.c = FALSE, prop.r = FALSE,
+           dnn = c('actual default', 'predicted default'))
+
+confusionMatrix(data = Result_costmatrix_pred, reference = df_test$Result, positive = "1")
+
+#I'll now create a 10 fold cross validation Decision Tree model.
+
+## Automating 10-fold CV for a C5.0 Decision Tree using lapply() ----
+set.seed(123)
+folds <- createFolds(df_rand$Result, k = 10)
+
+cv_results <- lapply(folds, function(x) {
+  df_rand_train <- df_rand[x, ]
+  df_rand_test <- df_rand[-x, ]
+  df_rand_model <- C5.0(Result ~ ., data = df_rand_train)
+  df_rand_pred <- predict(df_rand_model, df_rand_test)
+  df_rand_actual <- df_rand_test$Result
+  kappa <- kappa2(data.frame(df_rand_actual,df_rand_pred))$value
+  return(kappa)
+})
+
+str(cv_results)
+mean(unlist(cv_results))
+
+```
+  
+  - Random Forest: My random forest had an accuracy of 96.74% and a Kappa of .934. Based on these values I would say that this model is operating decently well.
+  
+```{r}
+## Random Forest 
+
+set.seed(300)
+rf <- randomForest(Result ~ ., data = df_train)
+
+rf_predictions <- predict(rf, df_test)
+
+CrossTable(x = df_test$Result, y = rf_predictions, 
+           prop.chisq=FALSE,prop.c = FALSE, prop.r = FALSE,
+           dnn = c('actual default', 'predicted default'))
+
+confusionMatrix(data = rf_predictions, reference = df_test$Result)
+```
+
+For the models that you build, calculate the Confusion Matrix and the Kappa statistic. Write a summary of how good or bad your models are.
+
+### Combining Models
+
+You are asked to combine the three models that you have built in the section above using a simple voting scheme (majority rules). Calculate the Confusion Matrix and Kappa statistic for the combined model.
+
+The voting system that takes the results of all five models returns an accuracy of 95.9% and a kappa of .9173.
+
+```{r}
+voting_prediction <- as.data.frame(cbind(prediction_nnet, DT_pred, rf_predictions, SVM_predictions_rbf, knn_test_pred, df_test$Result) - 1)
+
+names(voting_prediction)[6] <- "Actual_Outcome"
+
+voting_prediction$final_prediction <- ifelse(voting_prediction[1] + voting_prediction[2] + voting_prediction[3] + voting_prediction[4] + voting_prediction[5] >= 3, 1,0)
+
+voting_prediction$correct <- ifelse(voting_prediction[7] == voting_prediction[6], 1, 0)
+
+sum(voting_prediction$correct) / nrow(voting_prediction)
+
+confusionMatrix(data = voting_prediction$final_prediction, reference = voting_prediction$Actual_Outcome)
+
+```
+
+
+### What Does It All Mean?
+
+Does your work here has any business relevance? Who can be an audience for your model? How can your model be used in actual practice? How can you monetize your analysis in this exam?
+
+Yes this definitely has business relevance!!! I think a lot of email services employ something exactly like this to flag emails that be potentially dangerous. It could potentially increase the security of companies and governments by trying to decrease the number of times hackers or people with malicious entent are able to gain access to a company's intranet via a phishing scam. In actualy practice it could be used to automate which emails are flagged or not. 
+
+There are many many ways that this could be monetized including: 1) Build your own google chrome email extension that analyzes the content of emails and then generates its own warning for users, 2) Improve this algorithm and sell it to Google, Yahoo! etc 3) Build an actual email application that analyzes all of the content locally rather than on the internet via a chrome extension 4) WORK FOR THE DARK SIDE, collaborate with hackers to develop even better phishing scams so we can seize critical information, login credentials, bank account info etc and either ransom it back to their owners or use it maliciously 5) Work for the national security agency to develop evil phishing schemes for good (or so they say). 6) Help your younger siblings target the other local lemonade stands and disrupt their Amazon cup supply network by extracting and changing their login passwords, thus establishing your younger siblings lemonade stand as the most reliable one in the neighberhood, feel free to take a cut of the profits.
+
+> That's it. Upload your work to Canvas.
+ 
