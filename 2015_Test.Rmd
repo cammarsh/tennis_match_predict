@@ -220,7 +220,7 @@ for (x in secondhalfdata:rows){
 }
 ```
 
-Deal with seeds, ht, and entry
+Deal with seeds, ht, and entry, this effectively limits the dataset size
 
 ```{r}
 #for (x in nrow(data)){
@@ -240,8 +240,6 @@ Deal with seeds, ht, and entry
 #    data$p1_entry[x] <- U
 #  }
 #}
-
-  
 
 ```
 
@@ -282,13 +280,16 @@ Run a logistic regression to see whats significant
 
 ```{r}
 #preliminary statistical analysis using logistic regression
-logistic_model <- glm(Outcome ~  ., data = delta_data)
+
+#commented out as this was just to test if the df_train data was different in some way, its not
+#df_train$Outcome <- as.numeric(df_train$Outcome)
+
+logistic_model <- glm(Outcome ~  ., data = delta_rand)
 summary(logistic_model)
 ?glm
 ```
 
 In this code block we are preparing our data for use in machine learning algorithms.
-
 
 ### Data Management
 
@@ -301,13 +302,16 @@ In this code block we are preparing our data for use in machine learning algorit
 
 #randomize
 delta_rand <- delta_data[sample(nrow(delta_data)),]
+
+#make Outcome a factor
+delta_rand$Outcome <- as.factor(delta_rand$Outcome)
                                                                                                           
 # #Sample Indexes
 indexes = sample(1:nrow(delta_rand), size=0.25*nrow(delta_rand))
   
 # # Split data
 df_test <- delta_rand[indexes,]
-dim(df_test)  
+dim(df_test)
 df_train <- delta_rand[-indexes,]
 dim(df_train) 
 
@@ -327,11 +331,11 @@ Build (and attempt to improve) **any three** of the predictive models listed bel
 knn_train <- model.matrix(~.-1, data = df_train)
 knn_test <- model.matrix(~.-1,data = df_test)
 
-knn_train_labels <- knn_train[, 31]
-knn_test_labels <- knn_test[, 31]
+knn_train_labels <- knn_train[, 5]
+knn_test_labels <- knn_test[, 5]
 
 knn_test_pred <- knn(train = knn_train, test = knn_test,
-                      cl = knn_train_labels, k=5)
+                      cl = knn_train_labels, k=1)
 
 CrossTable(x = knn_test_labels, y = knn_test_pred, 
            prop.chisq=FALSE,prop.c = FALSE, prop.r = FALSE,
@@ -377,7 +381,7 @@ agreement_rbf <- SVM_predictions_rbf == df_test$Outcome
 table(agreement_rbf)
 prop.table(table(agreement_rbf))
 
-confusionMatrix(data = SVM_predictions_rbf, reference = df_test$Result, positive = "1")
+confusionMatrix(data = SVM_predictions_rbf, reference = df_test$Outcome, positive = "1")
 
 ```
   
@@ -403,7 +407,7 @@ confusionMatrix(data = prediction_nnet, reference = df_test$Outcome, positive = 
 #I'm going to build four decision tree models, a basic, boosted, one with a cost matrix, and a cross validated one. I will then pick the model that is the most accurate as the one I will plug into my voting system below.
 
 #Basic Decision Tree
-DT_model <- C5.0(df_train[-31], df_train$Result)
+DT_model <- C5.0(df_train[-5], df_train$Outcome)
 
 # display simple facts about the tree
 DT_model
@@ -415,24 +419,24 @@ summary(DT_model)
 DT_pred <- predict(DT_model, df_test)
 
 # cross tabulation of predicted versus actual classes
-CrossTable(df_test$Result, DT_pred,
+CrossTable(df_test$Outcome, DT_pred,
            prop.chisq = FALSE, prop.c = FALSE, prop.r = FALSE,
            dnn = c('actual default', 'predicted default'))
 
-confusionMatrix(data = DT_pred, reference = df_test$Result, positive = "1")
+confusionMatrix(data = DT_pred, reference = df_test$Outcome, positive = "1")
 
 #Decision tree model with 10 trials adaptive boosting:
-Result_boost10 <- C5.0(df_train[-31], df_train$Result,
+Result_boost10 <- C5.0(df_train[-5], df_train$Outcome,
                        trials = 10)
 Result_boost10
 summary(Result_boost10)
 
 Result_boost_pred10 <- predict(Result_boost10, df_test)
-CrossTable(df_test$Result, Result_boost_pred10,
+CrossTable(df_test$Outcome, Result_boost_pred10,
            prop.chisq = FALSE, prop.c = FALSE, prop.r = FALSE,
            dnn = c('actual default', 'predicted default'))
 
-confusionMatrix(data = Result_boost_pred10, reference = df_test$Result, positive = "1")
+confusionMatrix(data = Result_boost_pred10, reference = df_test$Outcome, positive = "1")
 
 
 #Now I will create a cost matrix that makes certain outcomes worse than over other outcomes. In this case my cost matrix weights errors that return a false negative as worse than a false positive. In this case I think this is the way to go becuase if this code was to bused for a product you would rather have the product be a bit overprotective, especially if it was guarding financial or critical information.
@@ -442,28 +446,28 @@ Result_cost <- matrix(c(0, 2, 3, 0), nrow = 2)
 Result_cost
 
 # apply the cost matrix to the tree
-Result_cost <- C5.0(df_train[-31], df_train$Result,
+Result_cost <- C5.0(df_train[-5], df_train$Result,
                           costs = Result_cost)
 Result_costmatrix_pred <- predict(Result_cost, df_test)
 
-CrossTable(df_test$Result, Result_costmatrix_pred,
+CrossTable(df_test$Outcomet, Result_costmatrix_pred,
            prop.chisq = FALSE, prop.c = FALSE, prop.r = FALSE,
            dnn = c('actual default', 'predicted default'))
 
-confusionMatrix(data = Result_costmatrix_pred, reference = df_test$Result, positive = "1")
+confusionMatrix(data = Result_costmatrix_pred, reference = df_test$Outcome, positive = "1")
 
 #I'll now create a 10 fold cross validation Decision Tree model.
 
 ## Automating 10-fold CV for a C5.0 Decision Tree using lapply() ----
 set.seed(123)
-folds <- createFolds(df_rand$Result, k = 10)
+folds <- createFolds(df_rand$Outcome, k = 10)
 
 cv_results <- lapply(folds, function(x) {
   df_rand_train <- df_rand[x, ]
   df_rand_test <- df_rand[-x, ]
   df_rand_model <- C5.0(Result ~ ., data = df_rand_train)
   df_rand_pred <- predict(df_rand_model, df_rand_test)
-  df_rand_actual <- df_rand_test$Result
+  df_rand_actual <- df_rand_test$Outcome
   kappa <- kappa2(data.frame(df_rand_actual,df_rand_pred))$value
   return(kappa)
 })
@@ -479,15 +483,15 @@ mean(unlist(cv_results))
 ## Random Forest 
 
 set.seed(300)
-rf <- randomForest(Result ~ ., data = df_train)
+rf <- randomForest(Outcome ~ ., data = df_train)
 
 rf_predictions <- predict(rf, df_test)
 
-CrossTable(x = df_test$Result, y = rf_predictions, 
+CrossTable(x = df_test$Outcome, y = rf_predictions, 
            prop.chisq=FALSE,prop.c = FALSE, prop.r = FALSE,
            dnn = c('actual default', 'predicted default'))
 
-confusionMatrix(data = rf_predictions, reference = df_test$Result)
+confusionMatrix(data = rf_predictions, reference = df_test$Outcome)
 ```
 
 For the models that you build, calculate the Confusion Matrix and the Kappa statistic. Write a summary of how good or bad your models are.
