@@ -1,12 +1,9 @@
 ---
-title: "Tennis Webscraper"
-author: "Sarah Jabbour/Lake Vitton"
-date: "4/9/2018"
-output:
-  html_document:
-    code_folding: hide
+title: "Data_Retrieval"
+author: "Lake Vitton"
+date: "6/19/2018"
+output: html_document
 ---
-
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
@@ -270,7 +267,7 @@ getmatchdata <- function(x) {
 
 }
 
-result = lapply(Codes[1:100],getmatchdata)
+result = lapply(Codes[1:10],getmatchdata)
 #result = lapply(Codes[1:8382],getmatchdata)
 MatchData = plyr::ldply(result, rbind)
 
@@ -287,11 +284,245 @@ MatchData$Outcome <- 1
 
 ```
 
+Write data to csv with the data in the title
+
 ```{r}
-#in the future we will import independent player stats such as height, weight, stance, and age here
+
+date <- Sys.Date()
+
+write.csv(MatchData, file = paste("Data_",Sys.Date(),".csv",sep=""),row.names = FALSE)
+
+```
 
 
+This webscraper extracts basic player info such as height, stance, weight, birthday etc. It also takes in their average career stats.We also built in the functionality via the url links to expand or constrain the search to certain years and numbers of players.
 
+```{r}
+
+  num_players = 100
+  
+  #gets top 1979 Players, but there isn't much data on the lower end, also takes a while to run
+  #url <- 'http://www.atpworldtour.com/en/rankings/singles?rankDate=2018-03-19&rankRange=1-5000'
+  
+  #gets top 100 Players
+  url <- paste0('http://www.atpworldtour.com/en/rankings/singles?rankDate=2018-04-02&rankRange=0-',num_players)
+  
+  #Reading the HTML code from the website
+  player_webpage <- read_html(url)
+  
+  #Using CSS selectors to scrap the rankings section
+  PlayerName_HTML <- html_nodes(player_webpage,"td.player-cell")
+  PlayerName_text <- html_text(PlayerName_HTML)
+  
+  #get tags
+  html_nodes(player_webpage, "tbody")
+  
+  t = html_nodes(player_webpage, "tbody")
+  
+  #t2 is a list of links from the rankings player_webpage, need to iterate through every 3 places
+  t2 = html_nodes(t, "a")
+  
+  #create list of numbers with values every three
+  #THIS IS DEPENDENT ON THE 
+  listnum <- seq(1,3*num_players - 1,by = 3)
+  newrow = list()
+  
+  PlayerCodes <- data.frame(Name = PlayerName_text)
+  
+  PlayerCodes$Link = 0
+  
+  for(x in listnum) { 
+    t3 <- html_attr(t2[x],"href")
+    PlayerCodes$Link[(x + 2)/3] <- t3
+  }
+  
+  #extract code from Link
+  
+  PlayerCodes$Code <- 0
+  
+  rows <- nrow(PlayerCodes)
+  for(x in 1:rows){
+    string <- PlayerCodes$Link[x]
+    end <- nchar(string)
+    last <- end -9
+    first <- end - 12
+    Code <- substr(string,first,last)
+    
+    PlayerCodes$Code[x] <- Code
+  }
+  
+
+  
+  
+  #Getting career stats for players function
+  getdata <- function(x){
+    
+    url <- paste0("http://www.atpworldtour.com/en/players/name-name/",x,"/player-stats?year=2018&surfaceType=hard")
+    player_webpage <- read_html(url)
+    
+    FirstName_HTML <- html_nodes(player_webpage,".first-name")
+    FirstName_text <- html_text(FirstName_HTML)
+    
+    LastName_HTML <- html_nodes(player_webpage,".last-name")
+    LastName_text <- html_text(LastName_HTML)
+    
+    Name <- paste(FirstName_text,LastName_text)
+    
+    Birthday_HTML <- html_nodes(player_webpage,".table-birthday-wrapper")
+    Birthday_text <- html_text(Birthday_HTML)
+    
+    #Weight_HTML <- html_nodes(player_webpage,".table-weight-kg")
+    #Weight_text <- html_text(Weight_HTML)
+    
+    Height_HTML <- html_nodes(player_webpage,".table-height-cm-wrapper")
+    Height_text <- html_text(Height_HTML)
+    
+    Stance_HTML <- html_nodes(player_webpage,"td:nth-child(3) .table-value")
+    Stance_text <- html_text(Stance_HTML)
+    
+    #singlesserving
+    #using xpath as the css selector
+    #Aces
+    Aces_HTML <- html_nodes(player_webpage,xpath = '//*[@id="playerMatchFactsContainer"]/table[1]/tbody/tr[1]/td[2]')
+    Aces_text <- html_text(Aces_HTML)
+    
+    #Double Faults
+    DoubleFaults_HTML <- html_nodes(player_webpage,xpath = '//*[@id="playerMatchFactsContainer"]/table[1]/tbody/tr[2]/td[2]')
+    DoubleFaults_text <- html_text(DoubleFaults_HTML)
+    
+    #First Serve
+    FirstServe_HTML <- html_nodes(player_webpage,xpath = '//*[@id="playerMatchFactsContainer"]/table[1]/tbody/tr[3]/td[2]')
+    FirstServe_text <- html_text(FirstServe_HTML)
+    
+    #First Serve Points Won
+    FirstServeWon_HTML <- html_nodes(player_webpage,xpath = '//*[@id="playerMatchFactsContainer"]/table[1]/tbody/tr[4]/td[2]')
+    FirstServeWon_text <- html_text(FirstServeWon_HTML)
+    
+    #Second Serve Points Won
+    SecondServeWon_HTML <- html_nodes(player_webpage,xpath = '//*[@id="playerMatchFactsContainer"]/table[1]/tbody/tr[5]/td[2]')
+    SecondServeWon_text <- html_text(SecondServeWon_HTML)
+    
+    #Break Points Faced
+    BreakPointsFaced_HTML <- html_nodes(player_webpage,xpath = '//*[@id="playerMatchFactsContainer"]/table[1]/tbody/tr[6]/td[2]')
+    BreakPointsFaced_text <- html_text(BreakPointsFaced_HTML)
+    
+    #Break Points Saved
+    BreakPointsSaved_HTML <- html_nodes(player_webpage,xpath = '//*[@id="playerMatchFactsContainer"]/table[1]/tbody/tr[7]/td[2]')
+    BreakPointsSaved_text <- html_text(BreakPointsSaved_HTML)
+    
+    #Service Games Played
+    ServiceGamesPlayed_HTML <- html_nodes(player_webpage,xpath = '//*[@id="playerMatchFactsContainer"]/table[1]/tbody/tr[8]/td[2]')
+    ServiceGamesPlayed_text <- html_text(ServiceGamesPlayed_HTML)
+    
+    #Service Games Won
+    ServiceGamesWon_HTML <- html_nodes(player_webpage,xpath = '//*[@id="playerMatchFactsContainer"]/table[1]/tbody/tr[9]/td[2]')
+    ServiceGamesWon_text <- html_text(ServiceGamesWon_HTML)
+    
+    #Total Service Points Won
+    TotalServicePointsWon_HTML <- html_nodes(player_webpage,xpath = '//*[@id="MatchFactsContainer"]/table[1]/tbody/tr[10]/td[2]')
+    TotalServicePointsWon_text <- html_text(TotalServicePointsWon_HTML)
+    
+    #singlesreturn
+    #First Serve Return Points Won
+    FirstServeReturnPointsWon_HTML <- html_nodes(player_webpage,xpath = '//*[@id="playerMatchFactsContainer"]/table[2]/tbody/tr[1]/td[2]')
+    FirstServeReturnPointsWon_text <- html_text(FirstServeReturnPointsWon_HTML)
+    
+    #Second Serve Return Points Won
+    SecondServeReturnPointsWon_HTML <- html_nodes(player_webpage,xpath = '//*[@id="playerMatchFactsContainer"]/table[2]/tbody/tr[2]/td[2]')
+    SecondServeReturnPointsWon_text <- html_text(SecondServeReturnPointsWon_HTML)
+    
+    #Break Points Opportunities
+    BreakPointsOpportunities_HTML <- html_nodes(player_webpage,xpath = '//*[@id="playerMatchFactsContainer"]/table[2]/tbody/tr[3]/td[2]')
+    BreakPointsOpportunities_text <- html_text(BreakPointsOpportunities_HTML)
+    
+    #Break Points Converted
+    BreakPointsConverted_HTML <- html_nodes(player_webpage,xpath = '//*[@id="playerMatchFactsContainer"]/table[2]/tbody/tr[4]/td[2]')
+    BreakPointsConverted_text <- html_text(BreakPointsConverted_HTML)
+    
+    #Return Games Played
+    ReturnGamesPlayed_HTML <- html_nodes(player_webpage,xpath = '//*[@id="playerMatchFactsContainer"]/table[2]/tbody/tr[5]/td[2]')
+    ReturnGamesPlayed_text <- html_text(ReturnGamesPlayed_HTML)
+    
+    #Return Games Won
+    ReturnGamesWon_HTML <- html_nodes(player_webpage,xpath = '//*[@id="playerMatchFactsContainer"]/table[2]/tbody/tr[6]/td[2]')
+    ReturnGamesWon_text <- html_text(ReturnGamesWon_HTML)
+    
+    #Return Points Won
+    ReturnPointsWon_HTML <- html_nodes(player_webpage,xpath = '//*[@id="playerMatchFactsContainer"]/table[2]/tbody/tr[7]/td[2]')
+    ReturnPointsWon_text <- html_text(ReturnPointsWon_HTML)
+    
+    #Total Points Won
+    TotalPointsWon_HTML <- html_nodes(player_webpage,xpath = '//*[@id="playerMatchFactsContainer"]/table[2]/tbody/tr[8]/td[2]')
+    TotalPointsWon_text <- html_text(TotalPointsWon_HTML)
+    
+    return(c(Name, Birthday_text, Height_text, Stance_text, Aces_text, DoubleFaults_text, FirstServe_text, FirstServeWon_text, 
+             SecondServeWon_text, BreakPointsFaced_text, BreakPointsSaved_text, ServiceGamesPlayed_text, ServiceGamesWon_text, TotalServicePointsWon_text, FirstServeReturnPointsWon_text, 
+             SecondServeReturnPointsWon_text, BreakPointsOpportunities_text, BreakPointsConverted_text, ReturnGamesPlayed_text, ReturnGamesWon_text,
+             ReturnPointsWon_text, TotalPointsWon_text))
+  }
+  result = mapply(getdata, PlayerCodes$Code)
+  PlayerData = plyr::ldply(result, rbind)
+
+  
+  
+  #Edit Column Names
+  names(PlayerData) <- c("Code", "Name","Birthday","Height","Stance","Aces","DoubleFaults","FirstServe", "FirstServeWon", 
+                         "SecondServeWon", "BreakPointsFaced", "BreakPointsSaved", "ServiceGamesPlayed", "TotalServicePointsWon", "FirstServeReturnPointsWon", 
+                         "SecondServeReturnPointsWon", "BreakPointsOpportunities", "BreakPointsConverted", "ReturnGamesPlayed", "ReturnGamesWon",
+                         "ReturnPointsWon", "TotalPointsWon")
+  
+  ## DATA CLEANING
+  #Remove Parentheses around Birthday
+  PlayerData$Birthday <- as.character(PlayerData$Birthday)
+  for(x in 1:rows){
+    PlayerData$Birthday[x] <- substr(PlayerData$Birthday[x],29,38)
+  }
+  
+  #Remove Parentheses and "cm" from Height
+  PlayerData$`Height` <- as.character(PlayerData$`Height`)
+  for(x in 1:rows){
+    PlayerData$`Height`[x] <- substr(PlayerData$`Height`[x],2,4)
+  }
+  
+  #function to get rid of extra text 
+  #Need to make sure percentages are accounted for
+  for (x in 6:ncol(PlayerData)) {
+    percent = FALSE 
+    PlayerData[,x] <- as.character(PlayerData[,x])
+    if (grepl('%', PlayerData[1,x])) {
+      percent = TRUE
+    }
+    for(y in 1:rows) {
+      PlayerData[y, x] <- as.numeric(gsub("([0-9]+).*$", "\\1", PlayerData[y,x]))
+      
+      if (percent) {
+        PlayerData[y,x] <- as.numeric(PlayerData[y,x])/100
+      }
+    }
+    
+    if (percent) {
+      PlayerData[,x] <- as.numeric(PlayerData[,x])
+    }
+  }
+  
+  
+  #now for stance 
+  PlayerData$Stance <- as.character(PlayerData$Stance)
+  PlayerData$Stance <- substr(PlayerData$Stance, 3, nchar(PlayerData$Stance) - 2)
+  
+  
+  #Change PlayerData Types of individual player PlayerData
+  #most of the ones commented out are percentages, should they be treated as numerics?
+  PlayerData$Name <- as.character(PlayerData$Name)
+  #PlayerData$Birthday is fine as a character 
+  PlayerData$`Height` <- as.numeric(PlayerData$`Height`)
+  #PlayerData$Stance is fine as a factor
+  PlayerData$Aces <- as.numeric(PlayerData$Aces)
+  PlayerData$DoubleFaults <- as.numeric(PlayerData$DoubleFaults)
+  PlayerData$BreakPointsFaced <- as.numeric(PlayerData$BreakPointsFaced)
+  PlayerData$ServiceGamesPlayed <- as.numeric(PlayerData$ServiceGamesPlayed)
+  PlayerData$BreakPointsOpportunities <- as.numeric(PlayerData$BreakPointsOpportunities)
+  PlayerData$ReturnGamesPlayed <- as.numeric(PlayerData$ReturnGamesPlayed)
 
 # we will leftjoin them to match data here
 ```
@@ -300,174 +531,3 @@ MatchData$Outcome <- 1
 Data Retrieval in its basic form ends above.
 
 Data cleaning Begins below
-
-```{r}
-#Data Cleaning
-#need to clean all the data before being able to bring in outcome from score and then run model
-
-MatchData <- na.omit(MatchData)
-
-#TODO List: we need to import the players code to match certain stats to their names from player data
-
-#function to get rid of extra text 
-#Need to make sure percentages are accounted for
-
-rows <- nrow(MatchData)
-columns <- ncol(MatchData)
-for (x in 7:(columns -6)){
-  percent = FALSE 
-  MatchData[,x] <- as.character(MatchData[,x])
-  if (grepl('%', MatchData[1,x])) {
-    percent = TRUE
-  }
-  for(y in 1:rows) {
-    MatchData[y, x] <- as.numeric(gsub("([0-9]+).*$", "\\1", MatchData[y,x]))
-      
-    if (percent) {
-      MatchData[y,x] <- as.numeric(MatchData[y,x])/100
-    }
-  }
-    
-  if (percent) {
-    MatchData[,x] <- as.numeric(MatchData[,x])
-  }
-}
-
-MatchData$Surface <- as.character(MatchData$Surface)
-
-#CLEAN THE DATA VARIABLES FROM THE MATCH DATA
-MatchData$P1Name <- as.character(MatchData$P1Name)
-MatchData$P2Name <- as.character(MatchData$P2Name)
-MatchData$P1ServeRating <- as.numeric(MatchData$P1ServeRating)
-MatchData$P2ServeRating <- as.numeric(MatchData$P2ServeRating)
-MatchData$P1Aces <- as.numeric(MatchData$P1Aces)
-MatchData$P2Aces <- as.numeric(MatchData$P2Aces)
-MatchData$P1DoubleFaults <- as.numeric(MatchData$P1DoubleFaults)
-MatchData$P2DoubleFaults <- as.numeric(MatchData$P2DoubleFaults)
-MatchData$P1FirstServe <- as.numeric(MatchData$P1FirstServe)
-MatchData$P2FirstServe <- as.numeric(MatchData$P2FirstServe)
-MatchData$P1FirstServePtsWon <- as.numeric(MatchData$P1FirstServePtsWon)
-MatchData$P2FirstServePtsWon <- as.numeric(MatchData$P2FirstServePtsWon)
-MatchData$P1SecServePtsWon <- as.numeric(MatchData$P1SecServePtsWon)
-MatchData$P2SecServePtsWon <- as.numeric(MatchData$P2SecServePtsWon)
-MatchData$P1BreakPointsConverted <- as.numeric(MatchData$P1BreakPointsConverted)
-MatchData$P2BreakPointsConverted <- as.numeric(MatchData$P2BreakPointsConverted)
-MatchData$P1ServicePtsWon <- as.numeric(MatchData$P1ServicePtsWon)
-MatchData$P2ServicePtsWon <- as.numeric(MatchData$P2ServicePtsWon)
-MatchData$P1ReturnPtsWon <- as.numeric(MatchData$P1ReturnPtsWon)
-MatchData$P2ReturnPtsWon <- as.numeric(MatchData$P2ReturnPtsWon) 
-
-
-#Fix Names + Scores + Surface here, simply remove extra spaces + r\n issues
-MatchData$P1Name <- gsub("\\s+", " ",gsub("[\r\n]", "", MatchData$P1Name))
-MatchData$P2Name <- gsub("\\s+", " ",gsub("[\r\n]", "", MatchData$P2Name))
-MatchData$Surface <- gsub("\\s+", " ",gsub("[\r\n]", "", MatchData$Surface))
-
-```
-
-```{r}
-#Flip second half of dataframe, so that we half of the first players winning and half of the first players losing
-rows <- nrow(MatchData)
-secondhalfdata <- rows/2
-
-for (x in secondhalfdata:rows){
- 
-  P1NameTemp <- MatchData$P1Name[x]
-  MatchData$P1Name[x] <- MatchData$P2Name[x]
-  MatchData$P2Name[x] <- P1NameTemp
-  
-  P1ServeRatingTemp <- MatchData$P1ServeRating[x]
-  MatchData$P1ServeRating[x] <- MatchData$P2ServeRating[x]
-  MatchData$P2ServeRating[x] <- P1ServeRatingTemp
-  
-  P1AcesTemp <- MatchData$P1Aces[x]
-  MatchData$P1Aces[x] <- MatchData$P2Aces[x]
-  MatchData$P2Aces[x] <- P1AcesTemp
-  
-  P1DoubleFaultsTemp <- MatchData$P1DoubleFaults[x]
-  MatchData$P1DoubleFaults[x] <- MatchData$P2DoubleFaults[x]
-  MatchData$P2DoubleFaults[x] <- P1DoubleFaultsTemp
-  
-  P1FirstServeTemp <- MatchData$P1FirstServe[x]
-  MatchData$P1FirstServe[x] <- MatchData$P2FirstServe[x]
-  MatchData$P2FirstServe[x] <- P1FirstServeTemp
-  
-  P1FirstServePtsWonTemp <- MatchData$P1FirstServePtsWon[x]
-  MatchData$P1FirstServePtsWon[x] <- MatchData$P2FirstServePtsWon[x]
-  MatchData$P2FirstServePtsWon[x] <- P1FirstServePtsWonTemp
-  
-  P1SecServePtsWonTemp <- MatchData$P1SecServePtsWon[x]
-  MatchData$P1SecServePtsWon[x] <- MatchData$P2SecServePtsWon[x]
-  MatchData$P2SecServePtsWon[x] <- P1SecServePtsWonTemp
-  
-  P1BreakPointsConvertedTemp <- MatchData$P1BreakPointsConverted[x]
-  MatchData$P1BreakPointsConverted[x] <- MatchData$P2BreakPointsConverted[x]
-  MatchData$P2BreakPointsConverted[x] <- P1BreakPointsConvertedTemp
-  
-  P1ServicePtsWonTemp <- MatchData$P1ServicePtsWon[x]
-  MatchData$P1ServicePtsWon[x] <- MatchData$P2ServicePtsWon[x]
-  MatchData$P2ServicePtsWon[x] <- P1ServicePtsWonTemp
-  
-  P1ReturnPtsWonTemp <- MatchData$P1ReturnPtsWon[x]
-  MatchData$P1ReturnPtsWon[x] <- MatchData$P2ReturnPtsWon[x]
-  MatchData$P2ReturnPtsWon[x] <- P1ReturnPtsWonTemp
-  
-  MatchData$Outcome[x] <- 0
-
-}
-```
-
-
-```{r}
-#Get Deltas of match data
-delta_match_data
-
-for (x in 1:nrow(MatchData)){
-  
-  delta_match_data$DeltaServeRating[x] <- MatchData$P1ServeRating[x] - MatchData$P2ServeRating[x]
-  
-  delta_match_data$DeltaAces[x] <- MatchData$P1Aces[x] - MatchData$P2Aces[x]
-  
-  delta_match_data$DeltaDoubleFaults[x] <- MatchData$P1DoubleFaults[x] - MatchData$P2DoubleFaults[x]
-  
-  delta_match_data$DeltaFirstServe[x] <- MatchData$P1FirstServe[x] - MatchData$P2FirstServe[x]
-  
-  delta_match_data$DeltaFirstServePtsWon[x] <- MatchData$P1FirstServePtsWon[x] - MatchData$P2FirstServePtsWon[x]
-  
-  delta_match_data$DeltaSecServePtsWon[x] <- MatchData$P1SecServePtsWon[x] - MatchData$P2SecServePtsWon[x]
-  
-  delta_match_data$DeltaBreakPointsConverted[x] <- MatchData$P1BreakPointsConverted[x] - MatchData$P2BreakPointsConverted[x]
-
-  delta_match_data$DeltaServicePtsWon[x] <- MatchData$P1ServicePtsWon[x] - MatchData$P2ServicePtsWon[x]
-  
-  delta_match_data$DeltaReturnPtsWon[x] <- MatchData$P1ReturnPtsWon[x] - MatchData$P2ReturnPtsWon[x]
-  
-#  delta_match_data$Surface[x] <- MatchData$Surface[x]
-  
-  delta_match_data$Outcome[x] <- MatchData$Outcome[x]
-  
-}
-
-```
-
-
-```{r}
-#Deal with Surface Types, have to do this later, after we've pulled all the data
-
-indoorgrass
-
-
-
-
-
-```
-
-Lets run some damn models now
-```{r}
-#logistic
-
-match_logistic_model <- glm(Outcome ~ ., data = delta_match_data)
-  
-summary(match_logistic_model)
-
-```

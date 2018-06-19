@@ -1,0 +1,10 @@
+"TournamentCode","MatchCode","P1Name","P2Name","P1ServeRating","P2ServeRating","P1Aces","P2Aces","P1DoubleFaults","P2DoubleFaults","P1FirstServe","P2FirstServe","P1FirstServePtsWon","P2FirstServePtsWon","P1SecServePtsWon","P2SecServePtsWon","P1BreakPointsConverted","P2BreakPointsConverted","P1ServicePtsWon","P2ServicePtsWon","P1ReturnPtsWon","P2ReturnPtsWon","Surface","Outcome"
+"339","339/MS001"," Grigor Dimitrov "," Kei Nishikori ",3,6,7,4,2,0,0.68,0.71,0.79,0.73,0.48,0.45,0.6,0.29,4,6,2,4,"Outdoor Hard ",1
+"451","451/MS001"," Novak Djokovic "," Andy Murray ",5,7,2,8,3,4,0.72,0.6,0.68,0.78,0.61,0.47,0.75,0.29,2,6,2,6,"Outdoor Hard ",1
+"891","891/MS001"," Roberto Bautista Agut "," Daniil Medvedev ",8,3,4,8,1,4,0.78,0.67,0.84,0.71,0.82,0.43,0.5,0,7,4,4,1,"Outdoor Hard ",1
+"338","338/MS001"," Gilles Muller "," Daniel Evans ",7,5,12,7,4,5,0.63,0.65,0.87,0.67,0.55,0.52,0.29,0,6,4,4,2,"Outdoor Hard ",1
+"301","301/MS001"," Jack Sock "," Joao Sousa ",4,2,13,10,3,3,0.69,0.63,0.8,0.67,0.46,0.4,0.56,0.75,4,2,6,4,"Outdoor Hard ",1
+"580","580/MS001"," Roger Federer "," Rafael Nadal ",4,4,20,4,3,3,0.62,0.73,0.76,0.63,0.49,0.56,0.3,0.24,2,3,5,6,"Outdoor Hard ",1
+"7434","7434/MS001"," Grigor Dimitrov "," David Goffin ",1,1,10,2,9,4,0.68,0.48,0.71,0.65,0.3,0.39,0.71,0.33,1,1,7,7,"Outdoor Clay ",1
+"7161","7161/MS001"," Victor Estrella Burgos "," Paolo Lorenzi ",6,8,4,17,2,4,0.65,0.56,0.79,0.88,0.63,0.47,1,0.29,5,7,1,3,"Indoor Hard ",1
+"375","375/MS001"," Alexander Zverev "," Richard Gasquet ",2,4,8,3,4,1,0.64,0.61,0.8,0.76,0.42,0.46,0.67,1,3,5,3,5,"Indoor Hard ",1
