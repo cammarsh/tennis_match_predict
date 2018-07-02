@@ -135,6 +135,25 @@ getmatchdata <- function(x) {
   
   P1Name <- paste(P1FirstName_text,P1LastName_text)
   
+  P1URL_HTML <- html_nodes(match_webpage, ".player-left-name a")
+  P1URL_HTML <- gsub('<a href=\"', "", P1URL_HTML)
+  print(P1URL_HTML)
+  P1Page <- s %>% follow_link(P1URL_HTML) %>% read_html()
+  P1 <- html_nodes(P1Page,  "#mainLayoutWrapper .table-big-value")
+  P1age <- P1[1]
+  P1weight <- P1[3]
+  P1secondRow <- html_nodes(P1Page, "#mainLayoutWrapper .table-label")
+  P1stance <- P1secondRow[3]
+  
+  P2URL_HTML <- html_nodes(match_webpage, ".player-right-name a")
+  P2URL_text <- html_text(P2URL_HTML)
+  P2Page <- s %>% follow_link(P2URL_text) %>% read_html()
+  P2 <- html_nodes(P1Page,  "#mainLayoutWrapper .table-big-value")
+  P2age <- P2[1]
+  P2weight <- P2[3]
+  P2secondRow <- html_nodes(P2Page, "#mainLayoutWrapper .table-label")
+  P2stance <- P2secondRow[3]
+  
   P2FirstName_HTML <- html_nodes(match_webpage,".player-right-name .first-name")
   P2FirstName_text <- html_text(P2FirstName_HTML)
   
