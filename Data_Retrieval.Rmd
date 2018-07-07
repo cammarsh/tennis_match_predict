@@ -13,6 +13,8 @@ library(stringi)
 library(plyr)
 library(caret)
 library(gmodels)
+library(DBI)
+library(RSQLite)
 
 ```
 
@@ -141,7 +143,6 @@ getmatchdata <- function(x) {
   s = html_session(URL_start)
   P1URL_HTML <- html_nodes(match_webpage, ".player-left-name a")%>% html_attr("href")
   P1URL_FINAL <- paste(URL_start, P1URL_HTML, sep = "")
-  print(P1URL_FINAL)
   P1Page <- read_html(P1URL_FINAL)
   P1 <- html_nodes(P1Page, ".table-big-value")
   p1Age <- P1[1] %>% html_text(trim= TRUE)
@@ -150,10 +151,8 @@ getmatchdata <- function(x) {
   words <- strsplit(p1Age, " ")
   p1AgeFinal <- words[1]
   P1weight <- P1[3] %>% html_text(trim=TRUE)
-  print(P1weight)
   P1secondRow <- html_nodes(P1Page, ".table-value")
   P1stance <- P1secondRow[3] %>% html_text(trim=TRUE)
-  print(P1stance)
   
   P2URL_HTML <- html_nodes(match_webpage, ".player-right-name a") %>% html_attr("href")
   P2URL_FINAL <- paste(URL_start, P2URL_HTML, sep = "")
@@ -558,7 +557,16 @@ This webscraper extracts basic player info such as height, stance, weight, birth
   PlayerData$ReturnGamesPlayed <- as.numeric(PlayerData$ReturnGamesPlayed)
 
 # we will leftjoin them to match data here
+  
+  mergedDB <- dbConnect(RSQLite::SQLite(),"")
+  dbWriteTable(mergedDB, "MatchData", MatchData)
+  dbWriteTable(mergedDB, "PlayerData", PlayerData)
+  dbGetQuery(mergedDB, 'CREATE TABLE MergedTbl AS SELECT * FROM MatchData LEFT JOIN PlayerData ON MatchData.P1Name = PlayerData.Name')
+  dbGetQuery(mergedDB, 'SELECT * FROM MergedTbl LEFT JOIN PlayerData on MergedTbl.P2Name = PlayerData.Name')
+  newMatchData <- dbReadTable(mergedDB, "MergedTbl")
+  
 ```
+
 
 
 Data Retrieval in its basic form ends above.
